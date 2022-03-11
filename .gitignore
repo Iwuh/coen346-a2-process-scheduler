@@ -30,3 +30,9 @@
 *.exe
 *.out
 *.app
+
+# VS Code configurations
+.vscode/
+
+# Output files
+bin/
