@@ -16,6 +16,9 @@ public:
     int getRemainingTime() const;
     bool isTerminated() const;
 
+    int getPriority() const;
+    void setPriority(int newPriority);
+
     // Gets the binary semaphore used to start the process while it's waiting.
     std::binary_semaphore& getStartSignal();
     // Gets the binary semaphore used to stop the process while it's running.
@@ -28,6 +31,7 @@ private:
     const int burstTime;
     int waitingTime;
     int runningTime;
+    int priority;
     std::binary_semaphore startSignal;
     std::binary_semaphore stopSignal;
     bool terminated;
