@@ -2,6 +2,7 @@
 
 #include <exception>
 #include <thread>
+#include <mutex>
 
 // How many clock cycles to simulate before exiting
 constexpr auto maxCycles = 100U;

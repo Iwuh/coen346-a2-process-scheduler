@@ -24,6 +24,9 @@ public:
     // Gets the binary semaphore used to stop the process while it's running.
     std::binary_semaphore& getStopSignal();
 
+    bool operator<(const Process& other);
+    bool operator>(const Process& other);
+    bool operator==(const Process& other);
     void operator()();
 
 private:

@@ -68,6 +68,22 @@ std::binary_semaphore& Process::getStopSignal()
     return stopSignal;
 }
 
+bool Process::operator<(const Process& other)
+{
+    // Lower priority integer => Higher actual priority
+    return getPriority() > other.getPriority();
+}
+
+bool Process::operator>(const Process& other)
+{
+    return getPriority() < other.getPriority();
+}
+
+bool Process::operator==(const Process& other)
+{
+    return getPriority() == other.getPriority();
+}
+
 void Process::operator()()
 {
     Clock& clock = Clock::getInstance();
@@ -83,11 +99,11 @@ void Process::operator()()
         waitingTime += clock.getTime() - previousSlotEndTime;
         memberLock.unlock();
 
+        // We need to track the running time of the process, so we hold the previous time check and the current time check to know when the clock has incremented
+        int lastTimeCheck, currentTimeCheck;
+        lastTimeCheck = clock.getTime();
         while (true)
         {
-            // We need to track the running time of the process, so we hold the previous time check and the current time check to know when the clock has incremented
-            int lastTimeCheck, currentTimeCheck;
-            lastTimeCheck = clock.getTime();
             if ((currentTimeCheck = clock.getTime()) > lastTimeCheck)
             {
                 memberLock.lock();
