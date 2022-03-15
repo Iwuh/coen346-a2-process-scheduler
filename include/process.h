@@ -16,6 +16,7 @@ public:
     };
 
     Process(std::string name, int arrivalTime, int burstTime, int priority);
+    Process(const Process& other);
 
     int getArrivalTime() const;
     int getBurstTime() const;

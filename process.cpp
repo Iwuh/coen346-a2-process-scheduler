@@ -14,6 +14,18 @@ Process::Process(std::string name, int arrivalTime, int burstTime, int priority)
 {
 }
 
+Process::Process(const Process& other)
+    : name(other.name)
+    , arrivalTime(other.arrivalTime)
+    , burstTime(other.burstTime)
+    , priority(other.priority)
+    , waitingTime(other.waitingTime)
+    , runningTime(other.runningTime)
+    , terminated(other.terminated)
+    , state(other.state)
+{    
+}
+
 int Process::getArrivalTime() const
 {
     return arrivalTime;
