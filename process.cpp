@@ -26,6 +26,11 @@ Process::Process(const Process& other)
 {    
 }
 
+std::string Process::getName() const
+{
+    return name;
+}
+
 int Process::getArrivalTime() const
 {
     return arrivalTime;
