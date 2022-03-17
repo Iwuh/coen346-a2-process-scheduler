@@ -14,18 +14,6 @@ Process::Process(std::string name, int arrivalTime, int burstTime, int priority)
 {
 }
 
-Process::Process(const Process& other)
-    : name(other.name)
-    , arrivalTime(other.arrivalTime)
-    , burstTime(other.burstTime)
-    , priority(other.priority)
-    , waitingTime(other.waitingTime)
-    , runningTime(other.runningTime)
-    , terminated(other.terminated)
-    , state(other.state)
-{    
-}
-
 std::string Process::getName() const
 {
     return name;
@@ -119,9 +107,9 @@ void Process::operator()()
         // Block until the state is no longer paused.
         std::unique_lock stateLock(stateMutex);
         stateSignal.wait(stateLock, 
-            [this](Process& p)
+            [this]()
             {
-                return p.getState() != State::Paused;
+                return getState() != State::Paused;
             }
         );
 
@@ -154,9 +142,9 @@ void Process::operator()()
             // If wait_for returns true, the predicate condition was met when the wait ended.
             // If wait_for returns false, the wait ended because of the timeout but the predicate was not met, so we should keep on running for now.
             if (stateSignal.wait_for(stateLock, std::chrono::milliseconds(50),
-                [this](Process& p)
+                [this]()
                 {
-                    return p.getState() == State::Paused;
+                    return getState() == State::Paused;
                 }))
             {
                 lastBurstEndTime = currentTimeCheck;

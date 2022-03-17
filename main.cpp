@@ -17,14 +17,14 @@ int main()
     std::string id;
 
     myfile >> numOfProcess;           // read number of processes
-    std::vector<Process> processList; // vector of Processes
+    std::vector<Process*> processList; // vector of Processes
 
     processList.reserve(numOfProcess); // Reserves number of processes in vector
     // Reads from file and instantiates objects that are added to the Vector
     for (int i = 0; i < numOfProcess; i++)
     {
         myfile >> id >> arrivalTime >> burstTime >> initialPriority;
-        processList.push_back(Process(id, arrivalTime, burstTime, initialPriority));
+        processList.push_back(new Process(id, arrivalTime, burstTime, initialPriority));
     }
     return 0;
 }
