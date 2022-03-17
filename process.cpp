@@ -2,14 +2,33 @@
 
 #include "include/clock.h"
 
-Process::Process(int arrivalTime, int burstTime)
-    : arrivalTime(arrivalTime)
+Process::Process(std::string name, int arrivalTime, int burstTime, int priority)
+    : name(name)
+    , arrivalTime(arrivalTime)
     , burstTime(burstTime)
+    , priority(priority)
     , waitingTime(0)
     , runningTime(0)
-    , startSignal(0)
-    , stopSignal(0)
+    , terminated(false)
+    , state(Process::State::Paused)
 {
+}
+
+Process::Process(const Process& other)
+    : name(other.name)
+    , arrivalTime(other.arrivalTime)
+    , burstTime(other.burstTime)
+    , priority(other.priority)
+    , waitingTime(other.waitingTime)
+    , runningTime(other.runningTime)
+    , terminated(other.terminated)
+    , state(other.state)
+{    
+}
+
+std::string Process::getName() const
+{
+    return name;
 }
 
 int Process::getArrivalTime() const
@@ -58,14 +77,21 @@ void Process::setPriority(int newPriority)
     priority = newPriority;
 }
 
-std::binary_semaphore& Process::getStartSignal()
+Process::State Process::getState() const
 {
-    return startSignal;
+    std::lock_guard stateLock(stateMutex);
+    return state;
 }
 
-std::binary_semaphore& Process::getStopSignal()
+void Process::setState(Process::State newState)
 {
-    return stopSignal;
+    std::lock_guard stateLock(stateMutex);
+    state = newState;
+}
+
+void Process::update()
+{
+    stateSignal.notify_one();
 }
 
 bool Process::operator<(const Process& other)
@@ -87,53 +113,64 @@ bool Process::operator==(const Process& other)
 void Process::operator()()
 {
     Clock& clock = Clock::getInstance();
-    int previousSlotEndTime = arrivalTime;
-    while (getRemainingTime() > 0)
+    int lastBurstEndTime;
+    while (true)
     {
-        // Wait until the scheduler tells us to resume
-        startSignal.acquire();
-        startSignal.release();
+        // Block until the state is no longer paused.
+        std::unique_lock stateLock(stateMutex);
+        stateSignal.wait(stateLock, 
+            [this](Process& p)
+            {
+                return p.getState() != State::Paused;
+            }
+        );
 
-        // Update the total time spend waiting
-        std::unique_lock memberLock(memberMutex);
-        waitingTime += clock.getTime() - previousSlotEndTime;
-        memberLock.unlock();
+        // We own the state lock once the condition variable finishes waiting.
+        if (state == State::Started)
+        {
+            waitingTime = clock.getTime() - arrivalTime;
+        }
+        else // Resumed
+        {
+            waitingTime += clock.getTime() - lastBurstEndTime;
+        }
 
-        // We need to track the running time of the process, so we hold the previous time check and the current time check to know when the clock has incremented
+        // Release the state lock so that the scheduler can signal us when to stop.
+        stateLock.unlock();
+
         int lastTimeCheck, currentTimeCheck;
         lastTimeCheck = clock.getTime();
-        while (true)
+        while (getRemainingTime() > 0)
         {
+            // First, check if the clock has incremented and increase the running time if so.
             if ((currentTimeCheck = clock.getTime()) > lastTimeCheck)
             {
-                memberLock.lock();
+                std::lock_guard memberLock(memberMutex);
                 runningTime++;
-                memberLock.unlock();
                 lastTimeCheck = currentTimeCheck;
             }
 
-            if (getRemainingTime() <= 0)
+            // Wait up to 50 milliseconds for a signal from the scheduler.
+            // If wait_for returns true, the predicate condition was met when the wait ended.
+            // If wait_for returns false, the wait ended because of the timeout but the predicate was not met, so we should keep on running for now.
+            if (stateSignal.wait_for(stateLock, std::chrono::milliseconds(50),
+                [this](Process& p)
+                {
+                    return p.getState() == State::Paused;
+                }))
             {
-                memberLock.lock();
-                terminated = true;
-                memberLock.unlock();
-                return;
-            }
-            else if (stopSignal.try_acquire())
-            {
-                // If the semaphore is acquired, it means the scheduler has told us to stop execution
-                stopSignal.release();
-                previousSlotEndTime = currentTimeCheck;
+                lastBurstEndTime = currentTimeCheck;
+                stateLock.unlock();
                 break;
             }
-            else
-            {
-                // Otherwise, we're still running and the clock increments every 250ms, so wait 125ms before the next iteration of the loop.
-                std::this_thread::sleep_for(std::chrono::milliseconds(125));
-            }
+        }
+
+        // Set the terminated flag and end process execution if we're done our entire burst time. Otherwise, return to the top of the loop.
+        if (getRemainingTime() <= 0)
+        {
+            std::lock_guard memberLock(memberMutex);
+            terminated = true;
+            return;
         }
     }
-    // Just in case we don't catch the process terminating inside the loop
-    std::lock_guard memberLock(memberMutex);
-    terminated = true;
 }

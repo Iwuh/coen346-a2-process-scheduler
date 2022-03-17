@@ -2,13 +2,23 @@
 #define PROCESS_H
 
 #include <mutex>
-#include <semaphore>
+#include <condition_variable>
+#include <string>
 
 class Process
 {
 public:
-    Process(int arrivalTime, int burstTime);
+    enum State
+    {
+        Started,
+        Paused,
+        Resumed
+    };
 
+    Process(std::string name, int arrivalTime, int burstTime, int priority);
+    Process(const Process& other);
+
+    std::string getName() const;
     int getArrivalTime() const;
     int getBurstTime() const;
     int getWaitingTime() const;
@@ -19,10 +29,10 @@ public:
     int getPriority() const;
     void setPriority(int newPriority);
 
-    // Gets the binary semaphore used to start the process while it's waiting.
-    std::binary_semaphore& getStartSignal();
-    // Gets the binary semaphore used to stop the process while it's running.
-    std::binary_semaphore& getStopSignal();
+    State getState() const;
+    void setState(State newState);
+    // Tells the process to update itself based on its current state set by the scheduler.
+    void update();
 
     bool operator<(const Process& other);
     bool operator>(const Process& other);
@@ -30,15 +40,17 @@ public:
     void operator()();
 
 private:
+    const std::string name;
     const int arrivalTime;
     const int burstTime;
     int waitingTime;
     int runningTime;
     int priority;
-    std::binary_semaphore startSignal;
-    std::binary_semaphore stopSignal;
     bool terminated;
     mutable std::mutex memberMutex;
+    State state;
+    mutable std::mutex stateMutex;
+    std::condition_variable stateSignal;
 };
 
 #endif
