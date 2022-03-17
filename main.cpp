@@ -26,5 +26,6 @@ int main()
         myfile >> id >> arrivalTime >> burstTime >> initialPriority;
         processList.push_back(new Process(id, arrivalTime, burstTime, initialPriority));
     }
+    myfile.close();
     return 0;
 }
