@@ -2,7 +2,6 @@
 #define SCHEDULER_H
 
 #include <queue>
-#include <algorithm>
 #include <map>
 #include <thread>
 

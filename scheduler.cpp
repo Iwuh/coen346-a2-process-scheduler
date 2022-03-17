@@ -1,4 +1,7 @@
 #include "include/scheduler.h"
+
+#include <algorithm>
+
 #include "include/clock.h"
 
 void Scheduler::operator()()
@@ -29,7 +32,11 @@ void Scheduler::operator()()
         // To start a process for the first time
         if (CpuProcess->getRunningTime() == 0)
         {
-            processThreads[CpuProcess->getName()] = new std::thread(CpuProcess);
+            // We can't start the thread directly with the Process object, because std::thread wants to copy it. 
+            // We can't let the Process be copied or it will invalidate the synchronization objects used for multithreading.
+            // Instead we run a lambda function that takes a pointer to a Process and then calls it.
+            processThreads[CpuProcess->getName()] = new std::thread([](Process *p){ (*p)(); }, CpuProcess);
+
             CpuProcess->setState(Process::State::Started);
             CpuProcess->update();
             priorityUpdator[CpuProcess->getName()] = 0;
@@ -54,10 +61,15 @@ void Scheduler::operator()()
 
         if (CpuProcess->isTerminated())
         {
+            // Join and delete the thread created to run the process
             processThreads[CpuProcess->getName()]->join();
             delete processThreads[CpuProcess->getName()];
             processThreads.erase(CpuProcess->getName());
+
+            // Delete the process itself
             delete CpuProcess;
+
+            // Skip updating the time slot and count if the process is terminated
             continue;
         }
 
@@ -71,9 +83,7 @@ void Scheduler::operator()()
             CpuProcess->setPriority(std::max(100, std::min(CpuProcess->getPriority() - bonus + 5, 139)));
         }
 
-        // Check if the process is terminated, if it is then delete it, otherwise move it into the expired queue
-        if (!CpuProcess->isTerminated())
-            expired->push(CpuProcess);
+        expired->push(CpuProcess);           
     }
 
     // Once the active queue is empty, swap the pointers to swap the queues
