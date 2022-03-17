@@ -29,6 +29,7 @@ void Scheduler::operator()()
         // To start a process for the first time
         if (CpuProcess->getRunningTime() == 0)
         {
+            processThreads[CpuProcess->getName()] = new std::thread(CpuProcess);
             CpuProcess->setState(Process::State::Started);
             CpuProcess->update();
             priorityUpdator[CpuProcess->getName()] = 0;
@@ -41,17 +42,29 @@ void Scheduler::operator()()
             CpuProcess->update();
         }
 
+
+
+        // running time of process in the cpu
+        while (clock.getTime() < endTime && !CpuProcess->isTerminated())
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
         // To pause a process that's running
         CpuProcess->setState(Process::State::Paused);
         CpuProcess->update();
 
-        // running time of process in the cpu
-        while (clock.getTime() < endTime)
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        if (CpuProcess->isTerminated())
+        {
+            processThreads[CpuProcess->getName()]->join();
+            delete processThreads[CpuProcess->getName()];
+            processThreads.erase(CpuProcess->getName());
+            delete CpuProcess;
+            continue;
+        }
 
-        // update priority, key value pair with string (name of process) and int (number of time slots)
+        // Update number of time slots process has recieved, key value pair with string (name of process) and int (number of time slots)
         priorityUpdator[CpuProcess->getName()]++;
 
+        // Update priority after every second time slot
         if (priorityUpdator[CpuProcess->getName()] % 2 && priorityUpdator[CpuProcess->getName()] > 0)
         {
             int bonus = ((10 * CpuProcess->getWaitingTime()) / (clock.getTime() - CpuProcess->getArrivalTime()));

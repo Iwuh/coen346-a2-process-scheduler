@@ -14,7 +14,7 @@ Process::Process(std::string name, int arrivalTime, int burstTime, int priority)
 {
 }
 
-std::string Process::getName() const
+const std::string& Process::getName() const
 {
     return name;
 }
