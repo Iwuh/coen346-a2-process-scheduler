@@ -3,16 +3,17 @@
 #include <algorithm>
 
 #include "include/clock.h"
-
-Scheduler::Scheduler(ProcessArrivalQueue& queue)
+#include <fstream>
+Scheduler::Scheduler(ProcessArrivalQueue &queue)
     : arrivalQueue(queue)
-{    
+{
 }
 
-void Scheduler::operator()(std::atomic_bool& stopFlag)
+void Scheduler::operator()(std::atomic_bool &stopFlag)
 {
     Clock &clock = Clock::getInstance();
-
+    std::ofstream outFile;
+    outFile.open("output.txt");
     // Initialize active and expired queues as pointers to class members
     auto active = &q1;
     auto expired = &q2;
@@ -64,13 +65,14 @@ void Scheduler::operator()(std::atomic_bool& stopFlag)
             // To start a process for the first time
             if (CpuProcess->getRunningTime() == 0)
             {
-                // We can't start the thread directly with the Process object, because std::thread wants to copy it. 
+                // We can't start the thread directly with the Process object, because std::thread wants to copy it.
                 // We can't let the Process be copied or it will invalidate the synchronization objects used for multithreading.
                 // Instead we run a lambda function that takes a pointer to a Process and then calls it.
+                outFile << "Time " << clock.getTime() << ", " << CpuProcess->getName() << ", " << CpuProcess->getState() << ", Granted" << timeSlotLength << std::endl;
                 processThreads[CpuProcess->getName()] = new std::thread(
                     [](Process *p)
-                    { 
-                        (*p)(); 
+                    {
+                        (*p)();
                     },
                     CpuProcess);
 
@@ -84,6 +86,7 @@ void Scheduler::operator()(std::atomic_bool& stopFlag)
             {
                 CpuProcess->setState(Process::State::Resumed);
                 CpuProcess->update();
+                outFile << "Time " << clock.getTime() << ", " << CpuProcess->getName() << ", " << CpuProcess->getState() << ", Granted" << timeSlotLength << std::endl;
             }
 
             // running time of process in the cpu
@@ -93,10 +96,12 @@ void Scheduler::operator()(std::atomic_bool& stopFlag)
             // To pause a process that's running
             CpuProcess->setState(Process::State::Paused);
             CpuProcess->update();
+            outFile << "Time " << clock.getTime() << ", " << CpuProcess->getName() << ", " << CpuProcess->getState() << std::endl;
 
             if (CpuProcess->isTerminated())
             {
                 // Join and delete the thread created to run the process
+                outFile << "Time " << clock.getTime() << ", " << CpuProcess->getName() << ", Terminated" << std::endl;
                 processThreads[CpuProcess->getName()]->join();
                 delete processThreads[CpuProcess->getName()];
                 processThreads.erase(CpuProcess->getName());
@@ -114,9 +119,10 @@ void Scheduler::operator()(std::atomic_bool& stopFlag)
                 {
                     int bonus = ((10 * CpuProcess->getWaitingTime()) / (clock.getTime() - CpuProcess->getArrivalTime()));
                     CpuProcess->setPriority(std::max(100, std::min(CpuProcess->getPriority() - bonus + 5, 139)));
+                    outFile << "Time " << clock.getTime() << ", " << CpuProcess->getName() << ", priority updated to " << CpuProcess->getPriority() << std::endl;
                 }
 
-                expired->push(CpuProcess);   
+                expired->push(CpuProcess);
             }
         }
 
@@ -124,5 +130,5 @@ void Scheduler::operator()(std::atomic_bool& stopFlag)
         auto temp = active;
         active = expired;
         expired = temp;
-    } 
+    }
 }
