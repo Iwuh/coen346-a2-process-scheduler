@@ -4,21 +4,24 @@
 #include <queue>
 #include <map>
 #include <thread>
+#include <atomic>
 
 #include "process.h"
+#include "processarrivalqueue.h"
 #include "prioritycompare.h"
 
 class Scheduler
 {
 public:
-  Scheduler(std::vector<Process *> &processes);
-  void operator()();
+    Scheduler(ProcessArrivalQueue &queue);
+    void operator()(std::atomic_bool &stopFlag);
 
 private:
-  std::priority_queue<Process *, std::vector<Process *>, PriorityCompare> q1;
-  std::priority_queue<Process *, std::vector<Process *>, PriorityCompare> q2;
-  std::map<std::string, int> priorityUpdator;
-  std::map<std::string, std::thread *> processThreads;
+    ProcessArrivalQueue arrivalQueue;
+    std::priority_queue<Process *, std::vector<Process *>, PriorityCompare> q1;
+    std::priority_queue<Process *, std::vector<Process *>, PriorityCompare> q2;
+    std::map<std::string, int> priorityUpdator;
+    std::map<std::string, std::thread *> processThreads;
 };
 
 #endif

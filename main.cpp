@@ -3,6 +3,7 @@
 #include <vector>
 #include "include/process.h"
 #include "include/clock.h"
+#include "include/scheduler.h"
 
 int main()
 {
@@ -27,5 +28,18 @@ int main()
         processList.push_back(new Process(id, arrivalTime, burstTime, initialPriority));
     }
     myfile.close();
+
+    Clock& clock = Clock::getInstance();
+    ProcessArrivalQueue queue(processList);
+    Scheduler scheduler(queue);
+
+    std::atomic_bool stopScheduler = false;
+    std::thread clockThread(clock);
+    std::thread schedulerThread(scheduler, stopScheduler);
+
+    clockThread.join();
+    stopScheduler = true;
+    schedulerThread.join();
+
     return 0;
 }
