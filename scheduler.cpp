@@ -21,7 +21,9 @@ void Scheduler::operator()(std::atomic_bool &stopFlag)
     // Initialize the active queue with any processes that have an arrival time of 0
     while (arrivalQueue.peek()->getArrivalTime() == 0)
     {
-        active->push(arrivalQueue.pop());
+        Process *p = arrivalQueue.pop();
+        outFile << "Time " << clock.getTime() << ", " << p->getName() << ", Arrived" << std::endl;
+        expired->push(p);
     }
 
     // Run the scheduler until we tell it to stop from the main thread
@@ -32,7 +34,9 @@ void Scheduler::operator()(std::atomic_bool &stopFlag)
         {
             while (arrivalQueue.peek()->getArrivalTime() <= clock.getTime())
             {
-                expired->push(arrivalQueue.pop());
+                Process *p = arrivalQueue.pop();
+                outFile << "Time " << clock.getTime() << ", " << p->getName() << ", Arrived" << std::endl;
+                expired->push(p);
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
@@ -42,7 +46,9 @@ void Scheduler::operator()(std::atomic_bool &stopFlag)
             // Check for new processes and put them in the expired queue
             while (arrivalQueue.peek()->getArrivalTime() <= clock.getTime())
             {
-                expired->push(arrivalQueue.pop());
+                Process *p = arrivalQueue.pop();
+                outFile << "Time " << clock.getTime() << ", " << p->getName() << ", Arrived" << std::endl;
+                expired->push(p);
             }
 
             Process *CpuProcess = active->top(); // sees highest priority
