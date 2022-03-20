@@ -71,6 +71,8 @@ void Scheduler::operator()(std::atomic_bool &stopFlag)
             // To start a process for the first time
             if (CpuProcess->getRunningTime() == 0)
             {
+                CpuProcess->setState(Process::State::Started);
+
                 // We can't start the thread directly with the Process object, because std::thread wants to copy it.
                 // We can't let the Process be copied or it will invalidate the synchronization objects used for multithreading.
                 // Instead we run a lambda function that takes a pointer to a Process and then calls it.
@@ -82,13 +84,9 @@ void Scheduler::operator()(std::atomic_bool &stopFlag)
                     },
                     CpuProcess);
 
-                CpuProcess->setState(Process::State::Started);
-                CpuProcess->update();
                 priorityUpdator[CpuProcess->getName()] = 0;
             }
-
-            // To resume a process that's already been started
-            if (CpuProcess->getRunningTime() != 0)
+            else if (CpuProcess->getRunningTime() != 0) // To resume a process that's already been started
             {
                 CpuProcess->setState(Process::State::Resumed);
                 CpuProcess->update();
@@ -97,7 +95,9 @@ void Scheduler::operator()(std::atomic_bool &stopFlag)
 
             // running time of process in the cpu
             while (clock.getTime() < endTime)
+            {
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            }
 
             // To pause a process that's running
             CpuProcess->setState(Process::State::Paused);

@@ -34,8 +34,20 @@ int main()
     Scheduler scheduler(queue);
 
     std::atomic_bool stopScheduler = false;
-    std::thread clockThread(clock);
-    std::thread schedulerThread(scheduler, stopScheduler);
+
+    std::thread clockThread(
+        [](Clock* c)
+        {
+            (*c)();
+        }, 
+        &clock);
+
+    std::thread schedulerThread(
+        [](Scheduler* s, std::atomic_bool& stopFlag)
+        {
+            (*s)(stopFlag);
+        },
+        &scheduler, std::ref(stopScheduler));
 
     clockThread.join();
     stopScheduler = true;

@@ -3,9 +3,10 @@
 #include <exception>
 #include <thread>
 #include <mutex>
+#include <iostream>
 
 // How many clock cycles to simulate before exiting
-constexpr auto maxCycles = 100U;
+constexpr auto maxCycles = 4000U;
 // How many real milliseconds to wait between each simulated clock cycle
 constexpr auto cycleLength = 250U;
 
@@ -39,5 +40,6 @@ void Clock::operator()()
         // Get a unique lock that blocks all readers while the increment happens
         std::unique_lock writerLock(mutex);
         time++;
+        std::cout << time << std::endl;
     }
 }

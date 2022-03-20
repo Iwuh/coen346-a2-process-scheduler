@@ -104,27 +104,22 @@ void Process::operator()()
     int lastBurstEndTime;
     while (true)
     {
-        // Block until the state is no longer paused.
-        std::unique_lock stateLock(stateMutex);
-        stateSignal.wait(stateLock, 
-            [this]()
-            {
-                return getState() != State::Paused;
-            }
-        );
-
-        // We own the state lock once the condition variable finishes waiting.
-        if (state == State::Started)
+        if (getState() == State::Started)
         {
             waitingTime = clock.getTime() - arrivalTime;
         }
-        else // Resumed
+        else
         {
+            std::unique_lock stateLock(stateMutex);
+            stateSignal.wait(stateLock, 
+                [this]()
+                {
+                    return state != State::Paused;
+                }
+            );
             waitingTime += clock.getTime() - lastBurstEndTime;
+            stateLock.unlock();
         }
-
-        // Release the state lock so that the scheduler can signal us when to stop.
-        stateLock.unlock();
 
         int lastTimeCheck, currentTimeCheck;
         lastTimeCheck = clock.getTime();
@@ -141,10 +136,11 @@ void Process::operator()()
             // Wait up to 50 milliseconds for a signal from the scheduler.
             // If wait_for returns true, the predicate condition was met when the wait ended.
             // If wait_for returns false, the wait ended because of the timeout but the predicate was not met, so we should keep on running for now.
+            std::unique_lock stateLock(stateMutex);
             if (stateSignal.wait_for(stateLock, std::chrono::milliseconds(50),
                 [this]()
                 {
-                    return getState() == State::Paused;
+                    return state == State::Paused;
                 }))
             {
                 lastBurstEndTime = currentTimeCheck;
