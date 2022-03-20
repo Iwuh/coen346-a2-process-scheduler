@@ -112,12 +112,14 @@ void Process::operator()()
     int lastBurstEndTime;
     while (true)
     {
+        // The process thread isn't started until the process is given its first time slot, so there's no need to wait before running
         if (getState() == State::Started)
         {
             waitingTime = clock.getTime() - arrivalTime;
         }
         else
         {
+            // Otherwise, we wait until the scheduler sets us to Resumed
             std::unique_lock stateLock(stateMutex);
             stateSignal.wait(stateLock, 
                 [this]()
@@ -160,7 +162,6 @@ void Process::operator()()
         // End process execution if we're done our entire burst time. Otherwise, return to the top of the loop.
         if (getRemainingTime() <= 0)
         {
-            std::lock_guard memberLock(memberMutex);
             return;
         }
     }
