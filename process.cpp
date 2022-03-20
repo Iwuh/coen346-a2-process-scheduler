@@ -9,7 +9,6 @@ Process::Process(std::string name, int arrivalTime, int burstTime, int priority)
     , priority(priority)
     , waitingTime(0)
     , runningTime(0)
-    , terminated(false)
     , state(Process::State::Paused)
 {
 }
@@ -47,12 +46,6 @@ int Process::getRemainingTime() const
     return burstTime - runningTime;
 }
 
-bool Process::isTerminated() const
-{
-    std::lock_guard memberLock(memberMutex);
-    return terminated;
-}
-
 int Process::getPriority() const
 {
     std::lock_guard memberLock(memberMutex);
@@ -69,6 +62,21 @@ Process::State Process::getState() const
 {
     std::lock_guard stateLock(stateMutex);
     return state;
+}
+
+std::string Process::getStateString() const
+{
+    switch (getState())
+    {
+        case State::Started:
+            return "Started";
+        case State::Paused:
+            return "Paused";
+        case State::Resumed:
+            return "Resumed";
+        default:
+            return "Unknown";
+    }
 }
 
 void Process::setState(Process::State newState)
@@ -133,11 +141,11 @@ void Process::operator()()
                 lastTimeCheck = currentTimeCheck;
             }
 
-            // Wait up to 50 milliseconds for a signal from the scheduler.
+            // Wait up to 25 milliseconds for a signal from the scheduler.
             // If wait_for returns true, the predicate condition was met when the wait ended.
             // If wait_for returns false, the wait ended because of the timeout but the predicate was not met, so we should keep on running for now.
             std::unique_lock stateLock(stateMutex);
-            if (stateSignal.wait_for(stateLock, std::chrono::milliseconds(50),
+            if (stateSignal.wait_for(stateLock, std::chrono::milliseconds(Clock::pollingInterval),
                 [this]()
                 {
                     return state == State::Paused;
@@ -149,11 +157,10 @@ void Process::operator()()
             }
         }
 
-        // Set the terminated flag and end process execution if we're done our entire burst time. Otherwise, return to the top of the loop.
+        // End process execution if we're done our entire burst time. Otherwise, return to the top of the loop.
         if (getRemainingTime() <= 0)
         {
             std::lock_guard memberLock(memberMutex);
-            terminated = true;
             return;
         }
     }

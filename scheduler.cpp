@@ -1,9 +1,10 @@
 #include "include/scheduler.h"
 
 #include <algorithm>
+#include <fstream>
 
 #include "include/clock.h"
-#include <fstream>
+
 Scheduler::Scheduler(ProcessArrivalQueue &queue)
     : arrivalQueue(queue)
 {
@@ -19,7 +20,7 @@ void Scheduler::operator()(std::atomic_bool &stopFlag)
     auto expired = &q2;
 
     // Initialize the active queue with any processes that have an arrival time of 0
-    while (arrivalQueue.peek()->getArrivalTime() == 0)
+    while (!arrivalQueue.empty() && arrivalQueue.peek()->getArrivalTime() == 0)
     {
         Process *p = arrivalQueue.pop();
         outFile << "Time " << clock.getTime() << ", " << p->getName() << ", Arrived" << std::endl;
@@ -29,8 +30,8 @@ void Scheduler::operator()(std::atomic_bool &stopFlag)
     // Run the scheduler until we tell it to stop from the main thread
     while (!stopFlag)
     {
-        // Check for new processes and then sleep for 50 milliseconds if both queues are empty to avoid constantly swapping the queues
-        if (active->empty() && expired->empty())
+        // Check for new processes and then sleep for 25 milliseconds if both queues are empty to avoid constantly swapping the queues
+        if (!arrivalQueue.empty() && active->empty() && expired->empty())
         {
             while (arrivalQueue.peek()->getArrivalTime() <= clock.getTime())
             {
@@ -38,13 +39,13 @@ void Scheduler::operator()(std::atomic_bool &stopFlag)
                 outFile << "Time " << clock.getTime() << ", " << p->getName() << ", Arrived" << std::endl;
                 expired->push(p);
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            std::this_thread::sleep_for(std::chrono::milliseconds(Clock::pollingInterval));
         }
 
         while (!active->empty())
         {
             // Check for new processes and put them in the expired queue
-            while (arrivalQueue.peek()->getArrivalTime() <= clock.getTime())
+            while (!arrivalQueue.empty() && arrivalQueue.peek()->getArrivalTime() <= clock.getTime())
             {
                 Process *p = arrivalQueue.pop();
                 outFile << "Time " << clock.getTime() << ", " << p->getName() << ", Arrived" << std::endl;
@@ -76,7 +77,7 @@ void Scheduler::operator()(std::atomic_bool &stopFlag)
                 // We can't start the thread directly with the Process object, because std::thread wants to copy it.
                 // We can't let the Process be copied or it will invalidate the synchronization objects used for multithreading.
                 // Instead we run a lambda function that takes a pointer to a Process and then calls it.
-                outFile << "Time " << clock.getTime() << ", " << CpuProcess->getName() << ", " << CpuProcess->getState() << ", Granted" << timeSlotLength << std::endl;
+                outFile << "Time " << clock.getTime() << ", " << CpuProcess->getName() << ", " << CpuProcess->getStateString() << ", Granted" << timeSlotLength << std::endl;
                 processThreads[CpuProcess->getName()] = new std::thread(
                     [](Process *p)
                     {
@@ -90,21 +91,26 @@ void Scheduler::operator()(std::atomic_bool &stopFlag)
             {
                 CpuProcess->setState(Process::State::Resumed);
                 CpuProcess->update();
-                outFile << "Time " << clock.getTime() << ", " << CpuProcess->getName() << ", " << CpuProcess->getState() << ", Granted" << timeSlotLength << std::endl;
+                outFile << "Time " << clock.getTime() << ", " << CpuProcess->getName() << ", " << CpuProcess->getStateString() << ", Granted " << timeSlotLength << std::endl;
             }
 
             // running time of process in the cpu
             while (clock.getTime() < endTime)
             {
-                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                while(!arrivalQueue.empty() && arrivalQueue.peek()->getArrivalTime() <= clock.getTime())
+                {
+                    Process *p = arrivalQueue.pop();
+                    outFile << "Time " << clock.getTime() << ", " << p->getName() << ", Arrived" << std::endl;
+                    expired->push(p);
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(Clock::pollingInterval));
             }
 
             // To pause a process that's running
             CpuProcess->setState(Process::State::Paused);
             CpuProcess->update();
-            outFile << "Time " << clock.getTime() << ", " << CpuProcess->getName() << ", " << CpuProcess->getState() << std::endl;
 
-            if (CpuProcess->isTerminated())
+            if (CpuProcess->getRemainingTime() <= 0)
             {
                 // Join and delete the thread created to run the process
                 outFile << "Time " << clock.getTime() << ", " << CpuProcess->getName() << ", Terminated" << std::endl;
@@ -117,11 +123,13 @@ void Scheduler::operator()(std::atomic_bool &stopFlag)
             }
             else
             {
+                outFile << "Time " << clock.getTime() << ", " << CpuProcess->getName() << ", Paused" << std::endl;
+
                 // Update number of time slots process has recieved, key value pair with string (name of process) and int (number of time slots)
                 priorityUpdator[CpuProcess->getName()]++;
 
                 // Update priority after every second time slot
-                if (priorityUpdator[CpuProcess->getName()] % 2 && priorityUpdator[CpuProcess->getName()] > 0)
+                if (priorityUpdator[CpuProcess->getName()] % 2 == 0 && priorityUpdator[CpuProcess->getName()] > 0)
                 {
                     int bonus = ((10 * CpuProcess->getWaitingTime()) / (clock.getTime() - CpuProcess->getArrivalTime()));
                     CpuProcess->setPriority(std::max(100, std::min(CpuProcess->getPriority() - bonus + 5, 139)));

@@ -8,6 +8,10 @@
 class Clock
 {
 public:
+    static constexpr unsigned int maxCycles = 4000U;
+    static constexpr unsigned int cycleLength = 125U;
+    static constexpr unsigned int pollingInterval = 25U;
+
     static Clock& getInstance();
 
 public:

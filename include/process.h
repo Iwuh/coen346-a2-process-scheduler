@@ -24,12 +24,12 @@ public:
     int getWaitingTime() const;
     int getRunningTime() const;
     int getRemainingTime() const;
-    bool isTerminated() const;
 
     int getPriority() const;
     void setPriority(int newPriority);
 
     State getState() const;
+    std::string getStateString() const;
     void setState(State newState);
     // Tells the process to update itself based on its current state set by the scheduler.
     void update();
@@ -46,7 +46,6 @@ private:
     int waitingTime;
     int runningTime;
     int priority;
-    bool terminated;
     mutable std::mutex memberMutex;
     State state;
     mutable std::mutex stateMutex;

@@ -5,11 +5,6 @@
 #include <mutex>
 #include <iostream>
 
-// How many clock cycles to simulate before exiting
-constexpr auto maxCycles = 4000U;
-// How many real milliseconds to wait between each simulated clock cycle
-constexpr auto cycleLength = 250U;
-
 Clock& Clock::getInstance()
 {
     // The static instance persists between calls, so the first getInstance() call will create the instance and future calls will return the same instance.
