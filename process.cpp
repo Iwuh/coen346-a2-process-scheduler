@@ -143,7 +143,7 @@ void Process::operator()()
                 lastTimeCheck = currentTimeCheck;
             }
 
-            // Wait up to 25 milliseconds for a signal from the scheduler.
+            // Wait up to one fifth of the clock interval for a signal from the scheduler.
             // If wait_for returns true, the predicate condition was met when the wait ended.
             // If wait_for returns false, the wait ended because of the timeout but the predicate was not met, so we should keep on running for now.
             std::unique_lock stateLock(stateMutex);
@@ -153,6 +153,12 @@ void Process::operator()()
                     return state == State::Paused;
                 }))
             {
+                // Update the running time one last time as we exit just in case the scheduler has told us to stop but we've missed a clock increment.
+                if ((currentTimeCheck = clock.getTime()) > lastTimeCheck)
+                {
+                    std::lock_guard memberLock(memberMutex);
+                    runningTime++;
+                }
                 lastBurstEndTime = currentTimeCheck;
                 stateLock.unlock();
                 break;

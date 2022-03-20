@@ -30,7 +30,7 @@ void Scheduler::operator()(std::atomic_bool &stopFlag)
     // Run the scheduler until we tell it to stop from the main thread
     while (!stopFlag)
     {
-        // Check for new processes and then sleep for 25 milliseconds if both queues are empty to avoid constantly swapping the queues
+        // Check for new processes and then sleep for one fifth of the clock interval if both queues are empty to avoid constantly swapping the queues
         if (!arrivalQueue.empty() && active->empty() && expired->empty())
         {
             while (arrivalQueue.peek()->getArrivalTime() <= clock.getTime())
@@ -77,7 +77,7 @@ void Scheduler::operator()(std::atomic_bool &stopFlag)
                 // We can't start the thread directly with the Process object, because std::thread wants to copy it.
                 // We can't let the Process be copied or it will invalidate the synchronization objects used for multithreading.
                 // Instead we run a lambda function that takes a pointer to a Process and then calls it.
-                outFile << "Time " << clock.getTime() << ", " << CpuProcess->getName() << ", " << CpuProcess->getStateString() << ", Granted" << timeSlotLength << std::endl;
+                outFile << "Time " << clock.getTime() << ", " << CpuProcess->getName() << ", " << CpuProcess->getStateString() << ", Granted " << timeSlotLength << std::endl;
                 processThreads[CpuProcess->getName()] = new std::thread(
                     [](Process *p)
                     {
